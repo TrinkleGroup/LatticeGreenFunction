@@ -1,0 +1,33 @@
+(def c0inv (inv (+ O 0 o)))
+(def a2inv (inv (+ A 2 a)))
+(def lambda2 (sum (- A 2 a) (+ A 1 o c0inv O 1 a)))
+(def ilambda2 (inv lambda2))
+(def lambda3 (sum (- A 1 o c0inv O 2 a) (- A 2 o c0inv O 1 a) (+ A 1 o c0inv O 1 o c0inv O 1 a)))
+(def lambda4 (sum (- A 1 o (sum (+ c0inv O 2 o c0inv) (- c0inv O 1 o c0inv O 1 o c0inv)) O 1 a) (+ A 2 o c0inv O 2 a) (+ A 1 o c0inv O 3 a) (+ A 3 o c0inv O 1 a) (- A 2 o c0inv O 1 o c0inv O 1 a) (- A 1 o c0inv O 1 o c0inv O 2 a) (- A 4 a)))
+(def gamma0 (sum (+ O 0 o) (- O 1 a (inv (+ A 2 a)) A 1 o)))
+(def igamma0 (inv gamma0))
+(def gamma1 (sum (+ O 1 o) (- O 1 a a2inv A 2 o) (- O 2 a a2inv A 1 o)))
+
+(def k_2_upleft ilambda2)
+(def i_on_k_upleft (+ ilambda2 lambda3 ilambda2))
+(def k0_upleft (sum (+ ilambda2 lambda4 ilambda2) (- ilambda2 lambda3 ilambda2 lambda3 ilambda2)))
+
+(def i_on_k_lowerleft (- c0inv O 1 a ilambda2))
+(def k0_lowerleft (sum (+ c0inv O 2 a ilambda2) (- c0inv O 1 o c0inv O 1 a ilambda2) (+ c0inv O 1 a ilambda2 lambda3 ilambda2)))
+
+(def i_on_k_upperright (+ a2inv A 1 o igamma0))
+(def k0_upperright (sum (- a2inv A 2 o igamma0) (+ a2inv A 1 o igamma0 gamma1 igamma0)))
+
+(def k0_lowerright igamma0)
+
+(eval "one_on_k_2_total" (+ a k_2_upleft A))
+(eval "i_on_k_total" (sum (+ a i_on_k_upleft A) (+ a i_on_k_upperright O) (+ o i_on_k_lowerleft A)))
+(eval "k0_total" (sum (+ a k0_upleft A) (+ a k0_upperright O) (+ o k0_lowerleft A) (+ o k0_lowerright O)))
+(eval "one_on_k_2_total_rot" (+ U k_2_upleft u))
+(eval "i_on_k_total_rot" (sum (+ U i_on_k_upleft u) (+ U i_on_k_upperright l) (+ L i_on_k_lowerleft u)))
+(eval "k0_total_rot" (sum (+ U k0_upleft u) (+ U k0_upperright l) (+ L k0_lowerleft u) (+ L k0_lowerright l)))
+(eval "XiInvAA" (+ U k_2_upleft u))
+(eval "XiInvAO" (sum (+ U i_on_k_upperright l) (+ L i_on_k_lowerleft u)))
+(eval "XiInvOO" (+ L k0_lowerright l))
+(eval "i_on_k_sub" (+ U i_on_k_upleft u))
+(eval "k0_sub" (sum (+ U k0_upleft u) (+ U k0_upperright l) (+ L k0_lowerleft u)))

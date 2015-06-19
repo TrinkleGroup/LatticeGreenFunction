@@ -1,0 +1,42 @@
+SYSTEM = Mg hcp c screw
+
+PREC = High
+EDIFF = 1e-8
+EDIFFG = -5e-3
+ALGO = Fast
+LREAL = Auto
+ISTART = 0
+ICHARGE = 2
+NSW = 30
+IBRION = 2
+ISIF = 2
+ISYM = 0
+
+NEDOS = 3000
+
+NGX =200
+NGY =200
+NGZ = 20
+NGXF=300
+NGYF=300
+NGZF= 30
+NBANDS= 770
+NBLK= 256
+
+LWAVE = .TRUE.
+LCHARG = .TRUE.
+
+LPLANE = .TRUE.
+NPAR = 1
+NSIM = 4
+
+! ENCUT = 106.148 ! POTCAR value
+ENCUT = 137.992 ! *1.3
+
+!ISMEAR = -5 ! -5: Tetrahedron Method with Blöchl corrections
+ISMEAR = 1 ! 1: Methfessel-Paxton Order 1
+SIGMA = 0.5
+
+ILGF = 2
+
+! vim: set syntax=fortran:

@@ -1,0 +1,5 @@
+0 0 1  # = t0  This is the [0001] screw
+0 0 1 1  # = b0
+1 0 0   # = m0  (cut vector: t0 x b0)
+0 0 0 1   # center
+0 0 0

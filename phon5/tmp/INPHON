@@ -1,0 +1,28 @@
+LSUPER=.FALSE.
+NDIM=6 6 4
+NTYPES=1; MASS = 24.305
+
+# q points section
+    LRECIP = .T.
+    ND = 6;  NPOINTS = 100
+    QI = 0.0        0.0        0.0 \
+         0.5        0.0        0.0 \
+         0.33333333 0.33333333 0.0 \
+         0.0        0.0        0.0 \
+         0.0        0.0        0.5 \
+         0.33333333 0.33333333 0.5
+
+    QF = 0.5        0.0        0.0 \
+         0.33333333 0.33333333 0.0 \
+         0.0        0.0        0.0 \
+         0.0        0.0        0.5 \
+         0.33333333 0.33333333 0.5 \
+         0.33333333 0.33333333 0.0
+# density of states
+#    LGAMMA = .TRUE.
+    QA = 12; QB = 12 ; QC = 12
+    DOSIN = 0;  DOSEND = 15;  DOSSTEP = 0.05; DOSSMEAR = .051
+
+# write force constant matrix
+    LFORCEOUT = .T.
+    NTI=20
