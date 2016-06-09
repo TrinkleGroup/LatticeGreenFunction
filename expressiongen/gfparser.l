@@ -7,6 +7,7 @@
 
 %%
 	/*** Rules ***/
+#.*		/* ignore comments */
 \(		return OPENP;
 \)		return CLOSEP;
 sum		return SUM;
