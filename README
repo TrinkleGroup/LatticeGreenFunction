@@ -77,9 +77,8 @@ build3dlgf.cc:
 genKgrid.cc:
 K-point grid generator for the lattice Green function calculations.
 
-
-./buildlgf/mg_c_screw:
-Example lattice Green function calculation for the c-type screw.
+2d-kptmesh.cc:
+General crystal k-point grid generator for the 2D lattice Green function calculations.
 
 ./phon5:
 Example phon calculation for the dynamical matrix for Mg.
@@ -109,3 +108,142 @@ Perl module with vector math functions and VASP file format readers.
 
 ./helperscripts/perlutils:
 Source code for the perl module.
+
+General usage instructions:
+The first thing you need to calculate is the force constant matrix for the bulk material.  There is an example for force constant matrix calculation for HCP Mg in trunk/phon5/
+To calculate the force constant matrix, I've used Dario Alfè's PHON code, available here:
+http://www.homepages.ucl.ac.uk/~ucfbdxa/
+
+This code uses the small displacement method to calculate the force constant matrix from VASP.  It needs forces from symmetrically inequivalent displacements of the atoms in the super cell.  I've used a 6x6x4 supercell for HCP Mg.  PHON can generate the supercell and calculate the necessary displacements for you:
+http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node6.html
+
+Once you have the necessary forces from small displacements, you can calculate the force constant matrix with PHON.  If you switch on LFORCEOUT=.T. in PHON it will output them in a file called HARMONIC.  If you already have the force constant matrix from some other means, you can use that as input for this code.
+
+trunk/helperscripts/convertHarmonic.pl converts the HARMONIC file to the force constant matrix input type that build2dlgf expects.  If you run this in the PHON directory with HARMONIC, INPHON and the supercell POSCAR, it will output the force constant matrix as: dmat.txt.
+The format of dmat.txt is as follows:
+line 1: comment description of the force constant matrix
+line 2: "number of lattice vectors in the file for the force constant matrix" "number of atoms in the unit cell"
+line 3-end:  R1 R2 R3 3Natomsx3Natoms Force Constant matrix for lattice vector R
+R1, R2 and R3 are the x,y, and z Cartesian components of the lattice vectors for the elements of the force constant matrix
+the 3Nx3N force constant matrix for lattice vector R is then written row by row: Dia,jb where i and j are the cartesian indices and a and b index the atoms in the unit cell (e.g. Mg = 1, Al = 2).  The 3Nx3N line is written as: 3*N*3*(i-1) + 3*N*(a-1) + 3*(b-1) + j
+
+The program build2dlgf in trunk/buildlgf calculates the lattice Green function from the force constant matrix.  This is what generates the lgf.out file that the getLgfcarDisl.pl perl script is expecting to convert it to the LGFCAR format for VASP LGF updates.  The helperscripts are useful for generating a lot of the input this program expects.
+
+Here is a description of the input that build2dlgf expects:
+Usage: ./build2dlgf dynamical_matrix kpoints cellvec dislocfile rvecfile
+
+dynamical_matrix:  This is the force constant matrix file (dmat.txt)
+
+kpoints:  This is the integration mesh in Fourier space for calculating the LGF.  This can be computed with the 2d-kptmesh program.
+./2d-kptmesh X.cell X.disl_tmn M N
+(M,N) divisions in the BZ.
+The X.cell file format describes the bulk unit cell:
+Line 1: lattice constant
+Line 2: lattice vector 1
+Line 3: lattice vector 2
+Line 4: lattice vector 3
+Line 5: Crystal type and elastic constants.
+Line 6:  number of atoms in the unit cell
+Line 7: position of atom 1 in unit cell coordinates
+Line 8: position of atom 2 in unit cell coordinates
+....
+Line 7+N: Mass of atom 1 in amu
+Line 8+N: Mass of atom 2 in amu
+...
+
+The X.disl_tmn file format is:
+t1 t2 t3     # dislocation line direction (unit cell coord.)
+m1 m2 m3     # dislocation cut vector (perp. to t, in slip plane)
+n1 n2 n3     # perpendicular direction (slip plane normal)
+
+That generates a T x M x N kpoint mesh for your input dislocation geometry and unit cell.  T is the number of points along the dislocation line direction, M is the number of points along the cut vector (for an edge dislocation, this is the Burgers' vector), and N is the number of points along the slip plane normal.  Take T = 1 for a dislocation, and you can run a convergence test increasing M and N for the LGF.
+
+cellvec: This file describes the unit cell for your bulk system.
+Line 1: lattice constant
+Line 2: lattice vector 1
+Line 3: lattice vector 2
+Line 4: lattice vector 3
+Line 5: Crystal type and elastic constants.  Since my LGF code doesn't actually use this information for anything (it's leftover from other code), you can just set it to any number and ignore the rest of the line.
+Line 6:  number of atoms in the unit cell
+Line 7: position of atom 1 in unit cell coordinates
+Line 8: position of atom 2 in unit cell coordinates
+....
+Line 7+N: Mass of atom 1 in amu
+Line 8+N: Mass of atom 2 in amu
+...
+
+dislocfile:  This describes the dislocation geometry.
+Line 1: Dislocation line direction in lattice coordinates.
+Line 2: Dislocation Burgers' vector in lattice coordinates:  a1 a2 a3 d
+where d is a divisor for introducing partial dislocations.  Set it to d=1 for a perfect dislocation.
+Line 3: Cut vector in lattice coordinates.  This defines the slip plane with the line direction. For an edge, this is the same as the Burgers vector.
+Line 4: Center of the dislocation strain field within the unit cell in lattice coordinates. (a1 a2 a3 d)
+Line 5: Shift of the dislocation strain field center in lattice coordinates (a1 a2 a3).
+
+rvecfile:  This is a list of all the lattice vectors at which to calculate the LGF.  The getRvecsXyzRotTagged.pl script in trunk/helperscripts can be used to calculate this from your dislocation geometry.  It also generates the lgf_pairing file which stores some information to speed up the calculation later.  The format of this file is as follows:
+Line 1: "number of R vectors" "scale factor for all R" "C" (for Cartesian coordinates, can be L for lattice coordinates as well)
+Line 2: R1x R2x R3x
+...
+
+The standard output from build2dlgf is the lgf.out information that the getLgfcarDisl.pl script expects.
+
+
+Using getRvecsXyzRotTagged.pl to calculate the necessary R vectors for the LGF:
+I made this script for working with HCP crystals. The nearest neighbor table needs to be changed for other crystals.  The search neighbor vectors are defined in the array @nnvecs on line 179 of the script. For example, for an orthorhombic cell, this should probably just be the 3^3 - 1 neighboring cells:
+@nnvecs = ([-1,-1,-1],
+[-1,-1,0],
+[-1,-1,1],
+[-1,0,-1],
+[-1,0,0],
+[-1,0,1],
+[-1,1,-1],
+[-1,1,0],
+[-1,1,1],
+[0,-1,-1],
+[0,-1,0],
+[0,-1,1],
+[0,0,-1],
+[0,0,1],
+[0,1,-1],
+[0,1,0],
+[0,1,1],
+[1,-1,-1],
+[1,-1,0],
+[1,-1,1],
+[1,0,-1],
+[1,0,0],
+[1,0,1],
+[1,1,-1],
+[1,1,0],
+[1,1,1]);
+
+Usage: ./getRvecsXyzRotTagged.pl cellfile dislfile disl.xyz Region_1_element Region_2_element Region_3_element Rvec_output LGF_pairing_output
+
+cellfile: the same cellfile described earlier
+
+dislfile: the same dislocfile described earlier.
+
+disl.xyz:  This is the initial dislocation simulation slab in the xyz file format.  We use the anisotropic elastic displacements for this.  I also have code for generating this slab from the elastic constants if you don't have this simulation cell yet.  Coordinates are along the m, n and t directions.
+Line 1: # of atoms.
+Line 2: "Periodic length along t in angstrom"
+Line 3: "Region Name"_"Unit cell atom number" m n t
+...
+
+Region_1_element:  Label for elements in region 1 of the dislocation cell. Goes in "Region Name" part of disl.xyz
+Region_2_element:  Label for elements in region 2 of the dislocation cell. Goes in "Region Name" part of disl.xyz
+Region_3_element:  Label for elements in region 3 of the dislocation cell. Goes in "Region Name" part of disl.xyz
+
+Rvec_output:  output filename for rvecfile
+
+LGF_pairing_output:  output pairing filename
+
+It occurs to me that you may not know what I mean by regions 1, 2 and 3.  The idea for this is described in: https://dtrinkle.matse.illinois.edu/_media/publications:lgf-prb2008.pdf
+We divide the dislocation cell into 3 regions. Region 1 is the dislocation core region where forces diverge strongly from elasticity. These atoms are relaxed with standard conjugate gradient in VASP. Region 2 is the linear response region around this core region.  The forces in this region are relaxed using the lattice Green function.  Region 3 is the boundary region where the atom positions are near the elastic positions.  We ignore the forces out there because they are boundary forces due to truncating the cell.
+
+
+Getting the LGFCAR from these programs:
+Usage: ./getLgfcarDisl.pl lgf.out cellfile lgfpairing.out LGF_Description
+lgf.out: the output file from the build2dlgf program
+cellfile: the same cellfile described earlier
+lgfpairing.out:  The LGF_pairing_output from the getRvecsXyzRotTagged.pl
+LGF_description: A comment string to describe the LGF.
