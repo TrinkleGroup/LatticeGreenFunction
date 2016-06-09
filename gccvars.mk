@@ -6,7 +6,9 @@ CFLAGS=-O3 -ftree-vectorize -march=native -flto -floop-parallelize-all -fgraphit
 CXXFLAGS=$(CFLAGS)
 CXXPROGFLAGS=-fuse-linker-plugin -fwhole-program
 #CXXPROGFLAGS=
-INCLUDES=-I/sw/include -I../matrixlib
-LIBS=-L/sw/lib -lgsl -lgslcblas
+#INCLUDES=-I/sw/include -I../matrixlib
+#LIBS=-L/sw/lib -lgsl -lgslcblas
+INCLUDES=-I../matrixlib
+LIBS=-lgsl -lgslcblas
 AR=gcc-ar
 RANLIB=gcc-ranlib
