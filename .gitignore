@@ -4,6 +4,7 @@
 /buildlgf/genKgrid
 /buildlgf/build3dlgf
 /buildlgf/build2dlgf2d
+/buildlgf/2d-kptmesh
 /expressiongen/lex.yy.c
 /expressiongen/gfparser.cc
 /expressiongen/gfparser.hh
