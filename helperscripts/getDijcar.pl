@@ -5,6 +5,13 @@ use warnings;
 
 use POSIX qw(floor);
 
+sub trimcomm(\$) {
+	my $ts = shift;
+	$$ts =~ s/\s*\#.*//;
+	$$ts =~ s/^\s+//;
+	return $$ts;
+}
+
 sub vecdiff($$) {
 	my $atom1 = $_[0];
 	my $atom2 = $_[1];
@@ -26,7 +33,7 @@ sub loadcell($) {
 
 	my $a0 = <CELLFILE>;
 	chomp($a0);
-	$a0 =~ s/\s*\#.*//;
+	trimcomm($a0);
 	$cell{'a0'} = $a0;
 	
 	my $avec = [[],[],[]];
@@ -42,13 +49,13 @@ sub loadcell($) {
 
 	my $cc = <CELLFILE>;
 	chomp($cc);
-	$cc =~ s/\s*\#.*//;
+	trimcomm($cc);
 
 	$cell{'cc'} = $cc;
 
 	my $natoms = <CELLFILE>;
 	chomp($natoms);
-	$natoms =~ s/\s*\#.*//;
+	trimcomm($natoms);
 
 	$cell{'natoms'} = $natoms;
 
@@ -58,7 +65,7 @@ sub loadcell($) {
 	for(my $idx = 0; $idx < $natoms; $idx++) {
 		my $atline = <CELLFILE>;
 		chomp($atline);
-		$atline =~ s/\s*\#.*//;
+		trimcomm($atline);
 		@{$$apos[$idx]} = split(/\s+/,$atline);
 		${$$aposc[$idx]}[0] = (${$$apos[$idx]}[0]*${$$avec[0]}[0]
 		                      + ${$$apos[$idx]}[1]*${$$avec[1]}[0]
@@ -212,17 +219,17 @@ sub loaddisl_rot($\%) {
 	open (DISLFILE, "<$dislfilename") or die "Could not open dislocation file: $dislfilename\n";
 	my $tdir = <DISLFILE>;
 	chomp($tdir);
-	$tdir =~ s/\s*\#.*//;
+	trimcomm($tdir);
 	my @tvec_u = split(/\s/, $tdir);
 
 	my $bdir = <DISLFILE>;
 	chomp($bdir);
-	$bdir =~ s/\s*\#.*//;
+	trimcomm($bdir);
 	my @bvec_u = split(/\s/, $bdir);
 
 	my $mdir = <DISLFILE>;
 	chomp($mdir);
-	$mdir =~ s/\s*\#.*//;
+	trimcomm($mdir);
 	my @mvec_u = split(/\s/, $mdir);
 
 	close(DISLFILE);
