@@ -57,9 +57,6 @@ int main(int argc, char *argv[]) {
 	num_m = atoi(argv[4]);
 	num_n = atoi(argv[5]);
 
-	cout.precision(16);
-	cout << scientific;
-	cout.setf(cout.showpos);
 	cerr.precision(16);
 	cerr << scientific;
 	cerr.setf(cerr.showpos);
@@ -83,15 +80,15 @@ int main(int argc, char *argv[]) {
 	//t = -T+1..T-1, m = -M+1..M-1, n=-N+1..N-1
 	//num kpoints = (2T-1)(2M-1)(2N-1)
 
-	double *kpoints;
 	int num_kpt = (2*num_t - 1)*(2*num_m - 1)*(2*num_n - 1);
-	kpoints = new double[3*num_kpt];
+	double *kpoints = new double[3*num_kpt];
 
 	double ts = 2.0*M_PI/vecmag2(t)/num_t;
 	double ms = 2.0*M_PI/vecmag2(m)/num_m;
 	double ns = 2.0*M_PI/vecmag2(n)/num_n;
 
-	std::cout << num_kpt << "\n";
+	cout << num_kpt << " 1.0 L\n";
+	double kweight = 1.0/static_cast<double>(num_kpt);
 	int q = 0;
 	for(int tx = -num_t+1; tx<num_t; ++tx) {
 		for(int mx = -num_m+1; mx<num_m; ++mx) {
@@ -99,14 +96,19 @@ int main(int argc, char *argv[]) {
 				kpoints[3*q] = tx*ts*t[0] + mx*ms*m[0] + nx*ns*n[0];
 				kpoints[3*q+1] = tx*ts*t[1] + mx*ms*m[1] + nx*ns*n[1];
 				kpoints[3*q+2] = tx*ts*t[2] + mx*ms*m[2] + nx*ns*n[2];
-				std::cout << kpoints[3*q] << " "
-					  << kpoints[3*q+1] << " "
-					  << kpoints[3*q+2] << "\n";
+				cout.precision(15);
+				cout.width(18);
+				cout << fixed
+				     << kpoints[3*q] << " "
+				     << kpoints[3*q+1] << " "
+				     << kpoints[3*q+2] << " "
+				     << kweight << "\n";
 				++q;
 			}
 		}
 	}
 	std::cout.flush();
+	delete [] kpoints;
 
 	return 0;
 }

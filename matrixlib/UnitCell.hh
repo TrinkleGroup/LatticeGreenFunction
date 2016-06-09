@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include "Matrix.hh"
+#include "SystemDimension.hh"
 
 #define KMAX_NN 3
 
@@ -26,14 +27,16 @@ public:
 	UnitCell(UnitCell &);
 	UnitCell(std::ifstream &cellfile);
 	~UnitCell();
-	void load_file(std::ifstream &cellfile);
+	virtual void load_file(std::ifstream &cellfile);
 
-	Matrix getAvec() const;
-	Matrix getBvec() const;
-	double getScale() const;
-	double getRscale() const;
-	double getVolume() const;
-	double getKmax() const;
+	virtual Matrix getAvec() const;
+	virtual Matrix getBvec() const;
+	virtual double getScale() const;
+	virtual double getRscale() const;
+	virtual double getVolume() const;
+	virtual double getKmax() const;
+
+	virtual void getAtomDiff(int, int, double *) const;
 };
 
 #endif

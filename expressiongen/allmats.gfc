@@ -4,7 +4,7 @@
 (def ilambda2 (inv lambda2))
 (def lambda3 (sum (- A 1 o c0inv O 2 a) (- A 2 o c0inv O 1 a) (+ A 1 o c0inv O 1 o c0inv O 1 a)))
 (def lambda4 (sum (- A 1 o (sum (+ c0inv O 2 o c0inv) (- c0inv O 1 o c0inv O 1 o c0inv)) O 1 a) (+ A 2 o c0inv O 2 a) (+ A 1 o c0inv O 3 a) (+ A 3 o c0inv O 1 a) (- A 2 o c0inv O 1 o c0inv O 1 a) (- A 1 o c0inv O 1 o c0inv O 2 a) (- A 4 a)))
-(def gamma0 (sum (+ O 0 o) (- O 1 a (inv (+ A 2 a)) A 1 o)))
+(def gamma0 (sum (+ O 0 o) (- O 1 a a2inv A 1 o)))
 (def igamma0 (inv gamma0))
 (def gamma1 (sum (+ O 1 o) (- O 1 a a2inv A 2 o) (- O 2 a a2inv A 1 o)))
 
@@ -31,3 +31,12 @@
 (eval "XiInvOO" (+ L k0_lowerright l))
 (eval "i_on_k_sub" (+ U i_on_k_upleft u))
 (eval "k0_sub" (sum (+ U k0_upleft u) (+ U k0_upperright l) (+ L k0_lowerleft u)))
+
+#special single atom functions
+(def ilambda2_1a (inv (- 2)))
+(def lambda4_1a (sum (- 4)))
+
+(eval "one_on_k_2_1a" ilambda2_1a)
+(eval "k0_1a" (+ ilambda2_1a lambda4_1a ilambda2_1a))
+(eval "XiInv_1a" ilambda2_1a)
+(eval "k0_sub_1a" (+ ilambda2_1a lambda4_1a ilambda2_1a))

@@ -17,6 +17,7 @@ public:
 	ZMatrix(gsl_complex *matrix, unsigned int m, unsigned int n);
 	ZMatrix(const ZMatrix &matrix);
 	ZMatrix(const Matrix &real, const Matrix &imag);
+	ZMatrix(const Matrix &real); //implied zero imaginary part
 	~ZMatrix();
 
 	virtual gsl_complex &val(unsigned int i, unsigned int j);

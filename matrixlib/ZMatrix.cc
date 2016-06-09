@@ -47,6 +47,16 @@ ZMatrix::ZMatrix(const Matrix &real, const Matrix &imag) {
 	}
 }
 
+ZMatrix::ZMatrix(const Matrix &real) {
+	mat = gsl_matrix_complex_alloc(real.getNumRows(),
+				       real.getNumColumns());
+	for(int i=0; i<getNumRows(); ++i) {
+		for(int j=0; j<getNumColumns(); ++j) {
+			GSL_SET_COMPLEX(gsl_matrix_complex_ptr(mat, i, j),real.val(i,j), 0.0);
+		}
+	}
+}
+
 ZMatrix::~ZMatrix() {
 	if(mat != NULL) {
 		gsl_matrix_complex_free(mat);

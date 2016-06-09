@@ -12,6 +12,7 @@
 #include "CutOffFcn.hh"
 #include "UnitCell.hh"
 #include "VecMath.hh"
+#include "SystemDimension.hh"
 
 #define MAX(x,y) ((x>y)?x:y)
 
@@ -25,8 +26,8 @@ SemiCont::SemiCont() { }
 SemiCont::SemiCont(DynMat &dmat, InvExpPtrs fc, double *kpoints, int nk, UnitCell &uc)
 	: dynmat(&dmat), ucell(uc), nkpt(nk), fcptrs(fc)
 {
-	this->kpoints = new double[3*nk];
-	for(int i=0; i<nk*3; ++i) {
+	this->kpoints = new double[CARTDIM*nk];
+	for(int i=0; i<nk*CARTDIM; ++i) {
 		this->kpoints[i] = kpoints[i];
 	}
 	kmax = uc.getKmax();
@@ -49,17 +50,17 @@ SemiCont::~SemiCont() {
 
 /* K points format:
  * num_kpoints(N)
- * k1_1 k1_2 k1_3
+ * k1_1 k1_2 .. k1_CARTDIM
  * ...
- * kN_1 kN_2 kN_3
+ * kN_1 kN_2 .. kN_CARTDIM
  */
 void SemiCont::load_kpoints(std::ifstream &ifs) {
 	ifs >> nkpt;
-	kpoints = new double[3u*nkpt];
+	kpoints = new double[CARTDIM*nkpt];
 	for(unsigned int i=0u; i<nkpt; ++i) {
-		ifs >> kpoints[3u*i]
-		    >> kpoints[3u*i + 1u]
-		    >> kpoints[3u*i + 2u];
+		for(unsigned int j=0u; j<CARTDIM; ++i) {
+			ifs >> kpoints[CARTDIM*i + j];
+		}
 	}
 }
 
@@ -70,12 +71,12 @@ void SemiCont::calcSemiCont(ZMatrix *gsc) {
 	//gsc = new ZMatrix[nkpt];
 
 	for(int i=0; i < nkpt; ++i) {
-		double *curr_k = kpoints + 3*i;
+		double *curr_k = kpoints + CARTDIM*i;
 		double kmag = vecmag(curr_k);
 
 		/* Gamma point -> SemiCont is zero by definition */
 		if(kmag == 0.0) {
-			gsc[i] = ZMatrix(3u*dynmat->getNions(), 3u*dynmat->getNions());
+			gsc[i] = ZMatrix(CARTDIM*dynmat->getNions(), CARTDIM*dynmat->getNions());
 		} else if(kmag < ksmall) {
 			gsc[i] = smallKexp(curr_k);
 		} else { 
@@ -91,12 +92,12 @@ void SemiCont::calcSemiCont(ZMatrix *gsc) {
 ZMatrix SemiCont::directSub(double *kpt) {
 	double cutoff = 1.0;
 	double kmag = vecmag(kpt);
-	double kdir[3];
-	kdir[0] = kpt[0]/kmag;
-	kdir[1] = kpt[1]/kmag;
-	kdir[2] = kpt[2]/kmag;
-	ZMatrix ft(dynmat->getNions()*3, dynmat->getNions()*3);
-	Matrix zero(dynmat->getNions()*3, dynmat->getNions()*3);
+	double kdir[CARTDIM];
+	for(unsigned int i = 0u; i<CARTDIM ; ++i) {
+		kdir[i] = kpt[i]/kmag;
+	}
+	ZMatrix ft(dynmat->getNions()*CARTDIM, dynmat->getNions()*CARTDIM);
+	Matrix zero(dynmat->getNions()*CARTDIM, dynmat->getNions()*CARTDIM);
 	dynmat->getFourierTransformRot(kpt, ft);
 	ZMatrix ret = ft.inverse();
 	if(kmag >= kmax) { //cutoff = 0.0, outside sphere
@@ -104,9 +105,12 @@ ZMatrix SemiCont::directSub(double *kpt) {
 	} else if(kmag > kmax*ALPHA_CUT) {
 		cutoff = fcutspline(kmag/kmax);
 	}
-	ret -= ZMatrix((*(fcptrs.one_on_k2))(*dynmat, kdir) * (cutoff/kmag/kmag), zero);
-	ret -= ZMatrix(zero, (*(fcptrs.i_on_k))(*dynmat, kdir)*(cutoff/kmag));
-	ret -= ZMatrix((*(fcptrs.k0))(*dynmat, kdir)*cutoff, zero);
+	ret -= ZMatrix((*(fcptrs.one_on_k2))(*dynmat, kdir) * (cutoff/kmag/kmag));
+	if(dynmat->getNions() != 1) {
+		ret -= ZMatrix(zero, (*(fcptrs.i_on_k))(*dynmat, kdir)*(cutoff/kmag));
+	}
+	ret -= ZMatrix((*(fcptrs.k0))(*dynmat, kdir)*cutoff);
+
 	return ret;
 }
 
@@ -115,16 +119,17 @@ ZMatrix SemiCont::directSub(double *kpt) {
  * XiInvK is the leading order pieces in each quadrant of the Green function
  * matrix
  */
+/* currently not used
 ZMatrix SemiCont::smallKtaylor(double *kpt) {
 	double kmag = vecmag(kpt);
-	double kdir[3];
-	kdir[0] = kpt[0]/kmag;
-	kdir[1] = kpt[1]/kmag;
-	kdir[2] = kpt[2]/kmag;
+	double kdir[CARTDIM];
+	for(unsigned int i = 0u; i < CARTDIM; ++i) {
+		kdir[i] = kpt[i]/kmag;
+	}
 
 	//std::cerr << "Small K Exp called: kmag = " << kmag << std::endl;
 
-	int msz = dynmat->getNions()*3;
+	int msz = dynmat->getNions()*CARTDIM;
 	ZMatrix smft(msz,msz);
 	ZMatrix XiInvK(msz,msz);
 	dynmat->getSmallFourierTransform(kpt, smft);
@@ -138,11 +143,10 @@ ZMatrix SemiCont::smallKtaylor(double *kpt) {
 	double condest = B.cond1est();
 	double condinv = 1.0/condest;
 
-	/* Little bit of an issue here. the max eigenvalue doesn't
-	 * really determine stability as in the single atom case
-	 * because of those pesky optical modes.  We really want
-	 * just the eigenvalues of the acoustic piece for comparison
-	 */
+	// Little bit of an issue here. the max eigenvalue doesn't
+	// really determine stability as in the single atom case
+	// because of those pesky optical modes.  We really want
+	// just the eigenvalues of the acoustic piece for comparison
 
 	//std::cerr << "condest = " << condest << std::endl;
 	//std::cerr << "1/condest = " << condinv << std::endl;
@@ -173,7 +177,7 @@ ZMatrix SemiCont::smallKtaylor(double *kpt) {
 		//std::cerr << "Power Inverse. nseries = " << nseries << std::endl;
 		// Power Series Inversion
 		ZMatrix tmpA = eye+B;
-		for(int n=0; n<nseries+3; ++n) {
+		for(int n=0; n<nseries+CARTDIM; ++n) {
 			tmpA = eye + B*tmpA;
 		}
 		pk = ((B*XiInvK - (*(fcptrs.i_on_k_sub))(*dynmat,kdir)*i_on_kmag) - (*(fcptrs.k0_sub))(*dynmat,kdir)*GSL_COMPLEX_ONE);
@@ -182,6 +186,7 @@ ZMatrix SemiCont::smallKtaylor(double *kpt) {
 
 	return pk;
 }
+*/
 
 /* calculate semicontinuum piece at kpoint kpt
  * via a small k expansion the analytic divergent acoustic pieces
@@ -192,23 +197,31 @@ ZMatrix SemiCont::smallKtaylor(double *kpt) {
  */
 ZMatrix SemiCont::smallKexp(double *kpt) {
 	double kmag = vecmag(kpt);
-	double kdir[3];
-	kdir[0] = kpt[0]/kmag;
-	kdir[1] = kpt[1]/kmag;
-	kdir[2] = kpt[2]/kmag;
+	double kdir[CARTDIM];
+	for(unsigned int i = 0u; i < CARTDIM; ++i) {
+		kdir[i] = kpt[i]/kmag;
+	}
 
-	//std::cerr << "Small K Exp called: kmag = " << kmag << std::endl;
 
-	int msz = dynmat->getNions()*3;
+	int msz = dynmat->getNions()*CARTDIM;
 	ZMatrix smft(msz,msz);
 	ZMatrix XiInvK(msz,msz);
 	dynmat->getSmallFourierTransform(kpt, smft);
-	XiInvK.setReal((*(fcptrs.XiInvAA))(*dynmat,kdir)*(1.0/kmag/kmag) + (*(fcptrs.XiInvOO))(*dynmat,kdir));
-	XiInvK.setImag((*(fcptrs.XiInvAO))(*dynmat,kdir)*(1.0/kmag));
-
+	//std::cerr << "Small K Exp called: kmag = " << kmag << "\n" << "smft = \n" << smft << std::endl;
 	gsl_complex i_on_kmag;
-	GSL_SET_COMPLEX(&i_on_kmag, 0.0, 1.0/kmag);
+
+	if(dynmat->getNions() == 1) {
+		XiInvK.setReal((*(fcptrs.XiInvAA))(*dynmat,kdir)*(1.0/kmag/kmag));
+	} else {
+		XiInvK.setReal((*(fcptrs.XiInvAA))(*dynmat,kdir)*(1.0/kmag/kmag) + (*(fcptrs.XiInvOO))(*dynmat,kdir));
+		XiInvK.setImag((*(fcptrs.XiInvAO))(*dynmat,kdir)*(1.0/kmag));
+
+		GSL_SET_COMPLEX(&i_on_kmag, 0.0, 1.0/kmag);
+	}
+
 	ZMatrix B = XiInvK * smft;
+
+	//std::cerr << "XiInvK =\n" << XiInvK << std::endl;
 
 	/*
 	double condest = B.cond1est();
@@ -246,9 +259,15 @@ ZMatrix SemiCont::smallKexp(double *kpt) {
 	// Direct inverse
 	ZMatrix A = eye - B;
 	A = A.inverse() - eye;
+	//std::cerr << "A =\n" << A << std::endl;
+	//std::cerr << "B =\n" << B << std::endl;
 	pk = A*XiInvK;
-	pk -= (*(fcptrs.i_on_k_sub))(*dynmat,kdir)*i_on_kmag;
+	//std::cerr << "pk1 =\n" << pk << std::endl;
+	if(dynmat->getNions() > 1) {
+		pk -= (*(fcptrs.i_on_k_sub))(*dynmat,kdir)*i_on_kmag;
+	}
 	pk -= (*(fcptrs.k0_sub))(*dynmat,kdir)*GSL_COMPLEX_ONE;
 
+	//std::cerr << "pk0 =\n" << pk << std::endl;
 	return pk;
 }

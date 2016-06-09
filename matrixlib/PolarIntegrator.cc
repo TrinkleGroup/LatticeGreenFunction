@@ -1,6 +1,7 @@
 /* File: PolarIntegrator.cc
  * 2D lattice Green function analytic integration routine
  */
+#include <cstdlib>
 #include <cmath>
 #include <cassert>
 #include <gsl/gsl_fft_real.h>
@@ -16,6 +17,7 @@
 #include "PolarIntegrator.hh"
 #include "CutOffFcn.hh"
 #include "VecMath.hh"
+#include "SystemDimension.hh"
 
 const size_t PolarIntegrator::INTWORKSZ; /* Numerical Integration Workspace Size */
 const double PolarIntegrator::TOL_A; /* absolute integration tolerance */
@@ -29,28 +31,55 @@ const int PolarIntegrator::INT_TYPE; /* Integration Type */
  * (i_on_k): function pointer to the i/k dynamical matrix expansion
  * (k0): function pointer to the k^0 dynamical matrix expansion
  */
-PolarIntegrator::PolarIntegrator(DynMat &dynmat, double t[3], double m[3], Matrix (*one_on_k2)(DynMat &, double[3]), Matrix (*i_on_k)(DynMat &, double[3]), Matrix (*k0)(DynMat &, double[3])) {
+PolarIntegrator::PolarIntegrator(DynMat &dynmat, double t[3], double *m, Matrix (*one_on_k2)(DynMat &, double *), Matrix (*i_on_k)(DynMat &, double *), Matrix (*k0)(DynMat &, double *)) {
+	if(CARTDIM != 3 && CARTDIM != 2) {
+		std::cerr << "This only works in 2 and 3 dimensions." << std::endl;
+		std::exit(1);
+	}
 	this->gexpan[0] = one_on_k2;
 	this->gexpan[1] = i_on_k;
 	this->gexpan[2] = k0;
 	this->dynmat = &dynmat;
-	this->tmag = vecmag(t);
-	this->tnorm[0] = t[0]/this->tmag;
-	this->tnorm[1] = t[1]/this->tmag;
-	this->tnorm[2] = t[2]/this->tmag;
+	mnorm = new double[CARTDIM];
+	nnorm = new double[CARTDIM];
+	if(CARTDIM == 3) {
+		this->tmag = vecmag(t);
+		for(unsigned int idx = 0u; idx < 3u; ++idx) {
+			this->tnorm[idx] = t[idx]/this->tmag;
+		}
+	} else {
+		this->tmag = 1.0;
+		this->tnorm[0] = 0.0;
+		this->tnorm[1] = 0.0;
+		this->tnorm[2] = 1.0;
+	}
 
 	this->mmag = vecmag(m);
-	this->mnorm[0] = m[0]/this->mmag;
-	this->mnorm[1] = m[1]/this->mmag;
-	this->mnorm[2] = m[2]/this->mmag;
+	for(unsigned int idx = 0u; idx < CARTDIM; ++idx) {
+		this->mnorm[idx] = m[idx]/this->mmag;
+	}
 
-	crossprod(t,m,this->nnorm);
-	this->nmag = vecmag(this->nnorm);
-	this->nnorm[0] /= this->nmag;
-	this->nnorm[1] /= this->nmag;
-	this->nnorm[2] /= this->nmag;
+	if(CARTDIM == 3) {
+		crossprod(t,m,this->nnorm);
+		this->nmag = vecmag(this->nnorm);
+		this->nnorm[0] /= this->nmag;
+		this->nnorm[1] /= this->nmag;
+		this->nnorm[2] /= this->nmag;
+	} else if(CARTDIM == 2) {
+		this->nnorm[0] = -mnorm[1];
+		this->nnorm[1] = mnorm[0];
+	}
+
 }
 
+PolarIntegrator::~PolarIntegrator() {
+	if(mnorm != NULL) {
+		delete [] mnorm;
+	}
+	if(nnorm != NULL) {
+		delete [] nnorm;
+	}
+}
 
 /* Calculates the angular Fourier coefficients for the k^b term
  * b: the Laurent expansion term (-2,-1,0) for the angular fourier expansion
@@ -66,7 +95,7 @@ PolarIntegrator::PolarIntegrator(DynMat &dynmat, double t[3], double m[3], Matri
 void PolarIntegrator::calcGnExp(int b, unsigned int nmax, Matrix *gn) {
 	/* nmax must be a power of 2 for the fft */
 
-	Matrix (*G)(DynMat &, double[3]);
+	Matrix (*G)(DynMat &, double *);
 
 	switch (b) {
 	case -2:
@@ -82,7 +111,7 @@ void PolarIntegrator::calcGnExp(int b, unsigned int nmax, Matrix *gn) {
 		exit(-1);
 	}
 
-	double Gpoints[3u*dynmat->getNions()][3u*dynmat->getNions()][nmax];
+	double Gpoints[CARTDIM*dynmat->getNions()][CARTDIM*dynmat->getNions()][nmax];
 
 	/* phi_m = 2*pi*n/Nmax 
 	 * expansion is in the plane \vec{k} \cdot \vec{t} = 0
@@ -90,27 +119,27 @@ void PolarIntegrator::calcGnExp(int b, unsigned int nmax, Matrix *gn) {
 	 * rotate about it
 	 */
 	double dphi = 2.0*M_PI/nmax;
-	double k[3];
+	double k[CARTDIM];
 	for(int m=0; m < nmax; ++m) {
 		double cosmdphi = std::cos(m*dphi);
 		double sinmdphi = std::sin(m*dphi);
-		k[0] = cosmdphi*mnorm[0] + sinmdphi*nnorm[0];
-		k[1] = cosmdphi*mnorm[1] + sinmdphi*nnorm[1];
-		k[2] = cosmdphi*mnorm[2] + sinmdphi*nnorm[2];
+		for(unsigned int idx = 0u; idx < CARTDIM; ++idx) {
+			k[idx] = cosmdphi*mnorm[idx] + sinmdphi*nnorm[idx];
+		}
 		Matrix gval = (*G)(*dynmat, k);
 		/*
 		if(b==-1) {
 			std::cerr << "Gk_b=-1(k={"<< k[0] << "," << k[1] << "," << k[2] << "})::\n"<<gval<<"\n";
 		}
 		*/
-		for(int i = 0; i<3*dynmat->getNions(); ++i) {
-			for(int j = 0; j<3*dynmat->getNions(); ++j) {
+		for(int i = 0; i<CARTDIM*dynmat->getNions(); ++i) {
+			for(int j = 0; j<CARTDIM*dynmat->getNions(); ++j) {
 				Gpoints[i][j][m] = gval.val(i,j);
 			}
 		}
 	}
-	for(int i = 0; i<3*dynmat->getNions(); ++i) {
-		for(int j = 0; j<3*dynmat->getNions(); ++j) {
+	for(int i = 0; i<CARTDIM*dynmat->getNions(); ++i) {
+		for(int j = 0; j<CARTDIM*dynmat->getNions(); ++j) {
 			if(gsl_fft_real_radix2_transform(Gpoints[i][j], 1, nmax) != 0) {
 				std::cerr << "FFT ERROR!" << std::endl;
 				exit(-1);
@@ -120,16 +149,16 @@ void PolarIntegrator::calcGnExp(int b, unsigned int nmax, Matrix *gn) {
 	/*
 	if(b==-1) {
 		for(int m=0; m < nmax; ++m) {
-			std::cerr << "Gfft_b=-1_m="<<m<<":\n"<<Gpoints[0][3][m]<<"\n";
+			std::cerr << "Gfft_b=-1_m="<<m<<":\n"<<Gpoints[0][CARTDIM][m]<<"\n";
 		}
 	}
 	*/
 	/* for b==-2 && b==0, only even n are non-zero */
 	if(b==-2 || b==0) {
 		for(int q=0; q < nmax/2; ++q) {
-			gn[q] = Matrix(3u*dynmat->getNions(),3u*dynmat->getNions());
-			for(int i = 0; i<3*dynmat->getNions(); ++i) {
-				for(int j = 0; j<3*dynmat->getNions(); ++j) {
+			gn[q] = Matrix(CARTDIM*dynmat->getNions(),CARTDIM*dynmat->getNions());
+			for(int i = 0; i<CARTDIM*dynmat->getNions(); ++i) {
+				for(int j = 0; j<CARTDIM*dynmat->getNions(); ++j) {
 					gn[q].val(i,j) = Gpoints[i][j][2*q]/(nmax);
 				}
 			}
@@ -137,9 +166,9 @@ void PolarIntegrator::calcGnExp(int b, unsigned int nmax, Matrix *gn) {
 	/* for b==-1, only odd n are non-zero */
 	} else {
 		for(int q=0; q < nmax/2; ++q) {
-			gn[q] = Matrix(3u*dynmat->getNions(),3u*dynmat->getNions());
-			for(int i = 0; i<3*dynmat->getNions(); ++i) {
-				for(int j = 0; j<3*dynmat->getNions(); ++j) {
+			gn[q] = Matrix(CARTDIM*dynmat->getNions(),CARTDIM*dynmat->getNions());
+			for(int i = 0; i<CARTDIM*dynmat->getNions(); ++i) {
+				for(int j = 0; j<CARTDIM*dynmat->getNions(); ++j) {
 					gn[q].val(i,j) = Gpoints[i][j][2*q+1]/(nmax);
 				}
 			}
@@ -153,8 +182,8 @@ void PolarIntegrator::calcGnExp(int b, unsigned int nmax, Matrix *gn) {
  * kmax is the cutoff k value
  * nmax is the number of Fourier expansion pieces
  */
-Matrix PolarIntegrator::calcG_b_R(Matrix *Gn, int b, int nmax, double kmax, double R[3], double V) {
-	Matrix sum(3u*dynmat->getNions(), 3u*dynmat->getNions());
+Matrix PolarIntegrator::calcG_b_R(Matrix *Gn, int b, int nmax, double kmax, double *R, double V) {
+	Matrix sum(CARTDIM*dynmat->getNions(), CARTDIM*dynmat->getNions());
 
 	double RdotM = vecdot(R,mnorm);
 	double RdotN = vecdot(R,nnorm);
@@ -220,12 +249,12 @@ double PolarIntegrator::integrandm0cut(double x, void *params) {
 
 
 /* Bessel function integrals to handle the cut-off function properly */
-double PolarIntegrator::radialBesselIntegral(double kmax, double R[3], int nsigned, int b) {
+double PolarIntegrator::radialBesselIntegral(double kmax, double *R, int nsigned, int b) {
 	assert(b == -2 || b == -1 | b == 0);
-	double Rperp = std::sqrt(vecmag2(R) - vecdot(R,tnorm)*vecdot(R,tnorm));
+	double Rperp = std::sqrt(fabs(vecmag2(R) - vecdot(R,tnorm)*vecdot(R,tnorm)));
 	int n = abs(nsigned);
 	/* special value: Rperp==0 */
-	if(fabs(Rperp) < 1.0e-14) {
+	if(Rperp < 1.0e-14) {
 		double val = 0.0;
 		if(n!=0) {
 			return 0.0;

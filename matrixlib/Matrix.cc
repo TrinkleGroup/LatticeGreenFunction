@@ -376,7 +376,7 @@ Matrix& Matrix::operator*=(const double s) {
 	return *this;
 }
 
-/* output a formatted matrix to an output stream *//
+/* output a formatted matrix to an output stream */
 std::ostream& operator<<(std::ostream &os, const Matrix &m) {
 	if(m.getNumRows() > 0 && m.getNumColumns() > 0) {
 		for(int i=0; i<m.getNumRows(); ++i) {

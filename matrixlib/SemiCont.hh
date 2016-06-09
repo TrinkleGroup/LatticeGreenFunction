@@ -7,6 +7,7 @@
 #include "Matrix.hh"
 #include "ZMatrix.hh"
 #include "UnitCell.hh"
+#include "SystemDimension.hh"
 
 /* function pointers to:
  * 1/k^2 correction
@@ -16,14 +17,14 @@
  * next leading order pieces for subtraction
  */
 struct InvExpPtrs {
-	Matrix (*one_on_k2)(DynMat &, double[3]);
-	Matrix (*i_on_k)(DynMat &, double[3]);
-	Matrix (*k0)(DynMat &, double[3]);
-	Matrix (*XiInvAA)(DynMat &, double[3]);
-	Matrix (*XiInvAO)(DynMat &, double[3]);
-	Matrix (*XiInvOO)(DynMat &, double[3]);
-	Matrix (*i_on_k_sub)(DynMat &, double[3]);
-	Matrix (*k0_sub)(DynMat &, double[3]);
+	Matrix (*one_on_k2)(DynMat &, double *);
+	Matrix (*i_on_k)(DynMat &, double *);
+	Matrix (*k0)(DynMat &, double *);
+	Matrix (*XiInvAA)(DynMat &, double *);
+	Matrix (*XiInvAO)(DynMat &, double *);
+	Matrix (*XiInvOO)(DynMat &, double *);
+	Matrix (*i_on_k_sub)(DynMat &, double *);
+	Matrix (*k0_sub)(DynMat &, double *);
 };
 
 
@@ -55,7 +56,7 @@ public:
 
 	void calcSemiCont(ZMatrix *gsc);
 	ZMatrix directSub(double *kpt);
-	ZMatrix smallKtaylor(double *kpt);
+	//ZMatrix smallKtaylor(double *kpt);
 	ZMatrix smallKexp(double *kpt);
 };
 

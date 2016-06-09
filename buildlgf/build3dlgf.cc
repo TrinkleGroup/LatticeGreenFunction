@@ -177,9 +177,9 @@ void doSemiCont(DynMat &dynmat, UnitCell &uc, double *kpoints, unsigned int nkpt
 
 	SemiCont sc(dynmat, fcptrs, kpoints, nkpt, uc);
 	sc.calcSemiCont(Gsc);
-	cerr << "SemiCont done..." << endl;
 
 	/*
+	cerr << "SemiCont done..." << endl;
 	for(int i = 0; i < nkpt; ++i) {
 		cerr << "k = (" << kpoints[3u*i+0u] << ","
 		     << kpoints[3u*i+1u] << ","
@@ -195,11 +195,13 @@ Matrix getGbr(DynMat &dynmat, double R[3], UnitCell &uc, double *kpoints, double
 	Matrix gbrm2 = SphericalIntegrator::calcG_b_R(glm_m2, -2, L_MAX_E, uc.getKmax(), R, uc.getVolume(), dynmat.getNions());
 	Matrix gbrm1 = SphericalIntegrator::calcG_b_R(glm_m1, -1, L_MAX_O, uc.getKmax(), R, uc.getVolume(), dynmat.getNions());
 	Matrix gbr0 = SphericalIntegrator::calcG_b_R(glm_0, 0, L_MAX_E, uc.getKmax(), R, uc.getVolume(), dynmat.getNions());
+#ifdef DEBUG
 	cerr << "R=(" << R[0] << "," << R[1] << "," << R[2] << ")\n";
 	//cerr << "rbi=" << SphericalIntegrator::radialBesselIntegral(uc.getKmax(), vecmag(R), 1, -1) << "\n";
 	cerr << "gbrm2=\n" << gbrm2;
 	cerr << "gbrm1=\n" << gbrm1;
 	cerr << "gbr0=\n" << gbr0;
+#endif
 
 
 	/* calculate the contribution from the in plane semi-continuum piece
@@ -212,7 +214,9 @@ Matrix getGbr(DynMat &dynmat, double R[3], UnitCell &uc, double *kpoints, double
 		gR_sc += (cos(kdotR)*(Gsc[i].getReal()) + sin(kdotR)*(Gsc[i].getImag()))*weights[i];
 	}
 
+#ifdef DEBUG
 	cerr << "Semicontinuum:\n" << gR_sc;
+#endif
 
 
 	return gbrm2 + gbrm1 + gbr0 + gR_sc;
@@ -241,9 +245,10 @@ int main(int argc, char *argv[]) {
 	cerr << scientific;
 	cerr.setf(cerr.showpos);
 
-	dynmat.load(dmstream);
-
 	UnitCell uc(cellstream);
+
+	dynmat.load(dmstream, uc);
+
 
 	load_kpoints(kpstream, num_kpoints, kpoints, weights, uc);
 
@@ -262,8 +267,12 @@ int main(int argc, char *argv[]) {
 
 	doSemiCont(dynmat, uc, kpoints, num_kpoints);
 
+	Matrix rot(dynmat.getRot());
+	Matrix rotT(dynmat.getRotT());
+
+	//rotate back from acoustic/optical to cartesian basis
 	for(double *R = Rpoints; R < Rpoints + 3u*num_rpoints; R += 3) {
-		Matrix gbr = getGbr(dynmat, R, uc, kpoints, weights, num_kpoints);
+		Matrix gbr = rotT*getGbr(dynmat, R, uc, kpoints, weights, num_kpoints)*rot;
 
 		cout << R[0] << " " << R[1] << " " << R[2] << "\n" << gbr;
 	}

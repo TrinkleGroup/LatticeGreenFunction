@@ -112,50 +112,6 @@ void load_kpoints(istream &ifs, unsigned int &n, double * &kpoints, double * &we
 	}
 }
 
-/* calculate k points the are in the plane of the dislocation */
-void inplane_kpoints(double *kpoints, double *weights, unsigned int nkpt, double * &plane_kpt, double * &plane_weights, unsigned int &n_plane_kpt, double *t) {
-	n_plane_kpt = 0;
-	for(unsigned int i=0u; i<nkpt; ++i) {
-		if(abs(vecdot(&kpoints[3u*i],t)) < TOL_PLANE) {
-			n_plane_kpt++;
-		}
-	}
-	plane_kpt = new double[3u*n_plane_kpt];
-	plane_weights = new double[n_plane_kpt];
-	unsigned int j = 0u;
-	for(unsigned int i=0u; i<nkpt; ++i) {
-		if(abs(vecdot(&kpoints[3u*i],t)) < TOL_PLANE) {
-			plane_kpt[3u*j] = kpoints[3u*i];
-			plane_kpt[3u*j+1u] = kpoints[3u*i+1u];
-			plane_kpt[3u*j+2u] = kpoints[3u*i+2u];
-			plane_weights[j] = weights[i];
-			j++;
-		}
-	}
-}
-
-/* calculate k points along the line direction */
-void outplane_kpoints(double *kpoints, double *weights, unsigned int nkpt, double * &outplane_kpt, double * &outplane_weights, unsigned int &n_outplane_kpt, double *t) {
-	n_outplane_kpt = 0;
-	for(unsigned int i=0u; i<nkpt; ++i) {
-		if(abs(vecdot(&kpoints[3u*i],t)) >= TOL_PLANE) {
-			n_outplane_kpt++;
-		}
-	}
-	outplane_kpt = new double[3u*n_outplane_kpt];
-	outplane_weights = new double[n_outplane_kpt];
-	unsigned int j = 0u;
-	for(unsigned int i=0u; i<nkpt; ++i) {
-		if(abs(vecdot(&kpoints[3u*i],t)) >= TOL_PLANE) {
-			outplane_kpt[3u*j] = kpoints[3u*i];
-			outplane_kpt[3u*j+1u] = kpoints[3u*i+1u];
-			outplane_kpt[3u*j+2u] = kpoints[3u*i+2u];
-			outplane_weights[j] = weights[i];
-			j++;
-		}
-	}
-}
-
 /* Polar Fourier expansion matrices for the G^-2, G^-1 and G^0 terms */
 static Matrix gn_m2[L_MAX_N/2];
 static Matrix gn_m1[L_MAX_N/2];
@@ -300,34 +256,11 @@ Matrix getGbr(DynMat &dynmat, double t[3], double *m, double *R, UnitCell &uc, d
 
 #ifdef DEBUG
 	cerr << "Semicontinuum:\n" << gR_sc;
-#endif
 
-
-	Matrix gR_out(CARTDIM*dynmat.getNions(), CARTDIM*dynmat.getNions());
-	/* Outer grid: just invert D(k) */
-	for(unsigned int i=0u; i<noutkpt; ++i) {
-		double *curr_k = outkpoints + CARTDIM*i;
-		ZMatrix Dft(CARTDIM*dynmat.getNions(), CARTDIM*dynmat.getNions());
-		dynmat.getFourierTransformRot(curr_k, Dft);
-		Dft.invert();
-		double kdotR = vecdot(curr_k,R);
-		gR_out += cos(kdotR)*Dft.getReal() + sin(kdotR)*Dft.getImag();
-	}
-	gR_out *= 1.0/(ninkpt+noutkpt);
-
-#ifdef DEBUG
-	cerr << "Parallel planes: " << gR_out;
-
-	Matrix sumall(CARTDIM*dynmat.getNions(), CARTDIM*dynmat.getNions());
-	sumall = gbrm2 + gbrm1 + gbr0 + gR_sc + gR_out;
-
-	cerr << "Sum:\n" << sumall;
 	cerr.flush();
-
-	return sumall;
-#else
-	return gbrm2 + gbrm1 + gbr0 + gR_sc + gR_out;
 #endif
+
+	return gbrm2 + gbrm1 + gbr0 + gR_sc;
 }
 
 /* load in the dislocation description file from dislstream */
@@ -368,14 +301,6 @@ void load_disl(istream &dislstream, const UnitCell &uc, double t[3], double *m) 
 		t[0] = 0.0;
 		t[1] = 0.0;
 		t[2] = 1.0;
-	} else {
-		for(int idx = 0; idx < CARTDIM; ++idx) {
-			t[idx] = 0.0;
-			for(int jdx = 0; jdx < CARTDIM; ++jdx) {
-				t[idx] += t_unit[jdx]*avec.val(jdx,idx);
-			}
-			t[idx] *= scale;
-		}
 	}
 }
 
@@ -387,7 +312,7 @@ int main(int argc, char *argv[]) {
 	}
 	double *kpoints, *weights;
 	unsigned int num_kpoints;
-	SystemDimension::initialize(3u);
+	SystemDimension::initialize(2u);
 	DynMat dynmat;
 	ifstream dmstream(argv[1]);
 	ifstream kpstream(argv[2]);
@@ -430,27 +355,27 @@ int main(int argc, char *argv[]) {
 	dmstream.close();
 	kpstream.close();
 
-	unsigned int n_inplane_kpt, n_outplane_kpt;
-	double *inplane_kpt, *outplane_kpt, *inplane_weights, *outplane_weights;
+	//unsigned int n_inplane_kpt, n_outplane_kpt;
+	//double *inplane_kpt, *outplane_kpt, *inplane_weights, *outplane_weights;
 
 	// split kpoints into in threading plane, and out of threading plane
-	inplane_kpoints(kpoints, weights, num_kpoints, inplane_kpt, inplane_weights, n_inplane_kpt, t);
-	outplane_kpoints(kpoints, weights, num_kpoints, outplane_kpt, outplane_weights, n_outplane_kpt, t);
+	//inplane_kpoints(kpoints, weights, num_kpoints, inplane_kpt, inplane_weights, n_inplane_kpt, t);
+	//outplane_kpoints(kpoints, weights, num_kpoints, outplane_kpt, outplane_weights, n_outplane_kpt, t);
 
 	//calculate polar expansion of the lattice Green function divergent
 	//terms
 	calcGns(dynmat, t, m);
-	Gsc = new ZMatrix[n_inplane_kpt];
+	Gsc = new ZMatrix[num_kpoints];
 
 	//calculate semi-continuum piece
-	doSemiCont(dynmat, uc, inplane_kpt, n_inplane_kpt);
+	doSemiCont(dynmat, uc, kpoints, num_kpoints);
 
 	Matrix rot(dynmat.getRot());
 	Matrix rotT(dynmat.getRotT());
 
 	//rotate back from acoustic/optical to cartesian basis
 	for(double *R = Rpoints; R < Rpoints + CARTDIM*num_rpoints; R += CARTDIM) {
-		Matrix gbr = rotT*getGbr(dynmat, t, m, R, uc, inplane_kpt, n_inplane_kpt, outplane_kpt, n_outplane_kpt)*rot;
+		Matrix gbr = rotT*getGbr(dynmat, t, m, R, uc, kpoints, num_kpoints, NULL, 0)*rot;
 
 		cout << R[0];
 		for(int idx = 1; idx < CARTDIM; ++idx) {
@@ -464,10 +389,12 @@ int main(int argc, char *argv[]) {
 	delete [] Rpoints;
 	delete [] kpoints;
 	delete [] weights;
+	/*
 	delete [] inplane_kpt;
 	delete [] outplane_kpt;
 	delete [] inplane_weights;
 	delete [] outplane_weights;
+	*/
 
 	return 0;
 }

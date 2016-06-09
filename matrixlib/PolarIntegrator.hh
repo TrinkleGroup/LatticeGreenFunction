@@ -5,6 +5,7 @@
 #include "ZMatrix.hh"
 #include "DynMat.hh"
 #include "CutOffFcn.hh"
+#include "SystemDimension.hh"
 
 typedef struct {
 	double Rperp;    // |\vec{R}_{\perp}|
@@ -20,12 +21,12 @@ private:
 	static const double TOL_R = 1e-9; /* relative integration tolerance */
 	static const int INT_TYPE = GSL_INTEG_GAUSS61; /* Integration Type */
 	DynMat *dynmat;
-	Matrix (*gexpan[3])(DynMat &, double[3]);
+	Matrix (*gexpan[3])(DynMat &, double *);
 	double tnorm[3];
 	double tmag;
-	double mnorm[3];
+	double *mnorm;
 	double mmag;
-	double nnorm[3];
+	double *nnorm;
 	double nmag;
 
 	static double integrandm2(double x, void *params);
@@ -35,10 +36,11 @@ private:
 	static double integrandm0(double x, void *params);
 	static double integrandm0cut(double x, void *params);
 public:
-	PolarIntegrator(DynMat &dynmat, double t[3], double m[3], Matrix (*one_on_k2)(DynMat &, double[3]), Matrix (*i_on_k)(DynMat &, double[3]), Matrix (*k0)(DynMat &, double[3]));
+	PolarIntegrator(DynMat &dynmat, double t[3], double *m, Matrix (*one_on_k2)(DynMat &, double *), Matrix (*i_on_k)(DynMat &, double *), Matrix (*k0)(DynMat &, double *));
+	~PolarIntegrator();
 	void calcGnExp(int b, unsigned int nmax, Matrix *gn);
-	Matrix calcG_b_R(Matrix *Gn, int b, int nmax, double kmax, double R[3], double V);
-	double radialBesselIntegral(double kmax, double R[3], int n, int b);
+	Matrix calcG_b_R(Matrix *Gn, int b, int nmax, double kmax, double *R, double V);
+	double radialBesselIntegral(double kmax, double *R, int n, int b);
 };
 
 #endif

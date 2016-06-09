@@ -21,33 +21,16 @@ const double SphericalIntegrator::TOL_ROOT; /* Legendre Root tolerance */
 const int SphericalIntegrator::INT_TYPE; /* Integration Type */
 
 
-/* Gauss-Legendre integration points from Numerical Recipes */
 void SphericalIntegrator::gauleg(double x[], double w[], int n)
 {
-	int m,j,i;
-	double z1,z,xm,xl,pp,p3,p2,p1;
-
-	m=(n+1)/2;
-	for (i=0;i<m;i++) {
-		z=cos(M_PI*(i+0.75)/(n+0.5));
-		do {
-			p1=1.0;
-			p2=0.0;
-			for (j=1;j<=n;j++) {
-				p3=p2;
-				p2=p1;
-				p1=((2.0*j-1.0)*z*p2-(j-1.0)*p3)/j;
-			}
-			pp=n*(z*p1-p2)/(z*z-1.0);
-			z1=z;
-			z=z1-p1/pp;
-		} while (fabs(z-z1) > TOL_ROOT);
-		x[i]=-z;
-		x[n-i-1]=z;
-		w[i]=2.0/((1.0-z*z)*pp*pp);
-		w[n-i-1]=w[i];
+	gsl_integration_glfixed_table *gaulegtab = gsl_integration_glfixed_table_alloc(n);
+	for(int i=0; i<n; ++i) {
+		x[i] = gaulegtab->x[i];
+		w[i] = gaulegtab->w[i];
 	}
+	gsl_integration_glfixed_table_free(gaulegtab);
 }
+
 
 /* radix-2 FFT for m*phi integrations, 2*lmax + 2 must be a power of 2
  * -> lmax = 2^n - 1 for some integer n

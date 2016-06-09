@@ -9,10 +9,11 @@
 #include <iostream>
 #include "UnitCell.hh"
 #include "VecMath.hh"
+#include "SystemDimension.hh"
 
 
 UnitCell::UnitCell()
-	: avec(3u,3u), bvec(3u,3u), elasticConsts(NULL), natoms(0),
+	: avec(CARTDIM,CARTDIM), bvec(CARTDIM,CARTDIM), elasticConsts(NULL), natoms(0),
 	  atomPos(NULL), atomicMass(NULL), volume(0.0), kmax(0.0)
 {
 }
@@ -33,7 +34,7 @@ static void readNonComment(std::ifstream &file, std::istringstream &is) {
 }
 
 UnitCell::UnitCell(std::ifstream &cellfile)
-	: avec(3u,3u), bvec(3u,3u)
+	: avec(CARTDIM,CARTDIM), bvec(CARTDIM,CARTDIM)
 {
 	load_file(cellfile);
 }
@@ -49,17 +50,18 @@ void UnitCell::load_file(std::ifstream &cellfile)
 	rscale = 2.0*M_PI/scale;
 
 	// read unit cell in Cartesian coordinates
-	readNonComment(cellfile, is);
-	is >> avec.val(0,0) >> avec.val(0,1) >> avec.val(0,2);
-	readNonComment(cellfile, is);
-	is >> avec.val(1,0) >> avec.val(1,1) >> avec.val(1,2);
-	readNonComment(cellfile, is);
-	is >> avec.val(2,0) >> avec.val(2,1) >> avec.val(2,2);
+	for(int idx = 0; idx < CARTDIM; ++idx) {
+		readNonComment(cellfile, is);
+		for(int jdx = 0; jdx < CARTDIM; ++jdx) {
+			is >> avec.val(idx,jdx);
+		}
+	}
 
 	// calculate reciprocal lattice vector
 	bvec = (avec.inverse()).transpose();
 	//calculate volume
-	volume = scale*scale*scale*avec.det();
+	
+	volume = pow(scale, CARTDIM)*avec.det();
 	//calculate kmax
 	kmax = calcKmax();
 
@@ -75,9 +77,20 @@ void UnitCell::load_file(std::ifstream &cellfile)
 	atomPos = new double*[natoms];
 	atomicMass = new double[natoms];
 	for(int i=0; i<natoms; ++i) {
-		atomPos[i] = new double[3];
+		atomPos[i] = new double[CARTDIM];
 		readNonComment(cellfile, is);
-		is >> atomPos[i][0] >> atomPos[i][1] >> atomPos[i][2];
+		double attmp[CARTDIM];
+		for(int j = 0; j < CARTDIM; ++j) {
+			is >> attmp[j];
+		}
+		// Convert from lattice to Cartesian
+		for(int j = 0; j < CARTDIM; ++j) {
+			atomPos[i][j] = 0.0;
+			for(int k = 0; k < CARTDIM; ++k) {
+				atomPos[i][j] += avec.val(k,j) * attmp[k];
+			}
+			atomPos[i][j] *= scale;
+		}
 	}
 	for(int i=0; i<natoms; ++i) {
 		readNonComment(cellfile, is);
@@ -97,10 +110,10 @@ UnitCell::UnitCell(UnitCell &c)
 		atomPos = new double*[natoms];
 		atomicMass = new double[natoms];
 		for(int i=0; i<natoms; ++i) {
-			atomPos[i] = new double[3];
-			atomPos[i][0] = c.atomPos[i][0];
-			atomPos[i][1] = c.atomPos[i][1];
-			atomPos[i][2] = c.atomPos[i][2];
+			atomPos[i] = new double[CARTDIM];
+			for(int j=0; j<CARTDIM; ++j) {
+				atomPos[i][j] = c.atomPos[i][j];
+			}
 		}
 		for(int i=0; i<natoms; ++i) {
 			atomicMass[i] = c.atomicMass[i];
@@ -145,30 +158,47 @@ double UnitCell::getVolume() const {
 }
 
 double UnitCell::calcKmax() {
-	int row[3];
+	int row[CARTDIM];
 
 	double kmin = vecmag2(bvec[0]);
-	double vec[3];
+	double vec[CARTDIM];
 
-	for(row[0] = -KMAX_NN; row[0] <= KMAX_NN; ++row[0]) {
-		for(row[1] = -KMAX_NN; row[1] <= KMAX_NN; ++row[1]) {
-			for(row[2] = -KMAX_NN; row[2] <= KMAX_NN; ++row[2]) {
-				if(row[0] == 0 && row[1] == 0 && row[2] == 0)
-					continue;
-				vec[0] = bvec.val(0,0) * row[0] +
-				         bvec.val(1,0) * row[1] +
-				         bvec.val(2,0) * row[2];
-				vec[1] = bvec.val(0,1) * row[0] +
-				         bvec.val(1,1) * row[1] +
-				         bvec.val(2,1) * row[2];
-				vec[2] = bvec.val(0,2) * row[0] +
-				         bvec.val(1,2) * row[1] +
-				         bvec.val(2,2) * row[2];
+	/* initialize the nn vector of integers */
+	for(int idx = 0; idx < CARTDIM; ++idx) {
+		row[idx] = -KMAX_NN;
+	}
 
-				double vmag = vecmag2(vec);
-				if(vmag < kmin) kmin = vmag;
+	while(row[0] <= KMAX_NN) {
+		for(int idx = 0; idx < CARTDIM; ++idx) {
+			vec[idx] = 0.0;
+			for(int jdx = 0; jdx < CARTDIM; ++jdx) {
+				vec[idx] += bvec.val(jdx,idx) * row[jdx];
 			}
 		}
+		double vmag = vecmag2(vec);
+		if(vmag < kmin) kmin = vmag;
+		int counter = CARTDIM - 1;
+
+		while(++row[counter] > KMAX_NN && counter > 0) {
+			row[counter] = -KMAX_NN;
+			counter--;
+		}
+		bool iszero = true;
+		for(int idx = 0; idx < CARTDIM; ++idx) {
+			if(row[idx] != 0) {
+				iszero = false;
+				break;
+			}
+		}
+		counter = CARTDIM - 1;
+		if(iszero) {
+
+			while(++row[counter] > KMAX_NN && counter > 0) {
+				row[counter] = -KMAX_NN;
+				counter--;
+			}
+		}
+
 	}
 
 	return 0.5*getRscale()*sqrt(kmin);
@@ -176,4 +206,10 @@ double UnitCell::calcKmax() {
 
 double UnitCell::getKmax() const {
 	return kmax;
+}
+
+void UnitCell::getAtomDiff(int i, int j, double *rr) const {
+	for(int idx=0; idx<CARTDIM; ++idx) {
+		rr[idx] = atomPos[i][idx] - atomPos[j][idx];
+	}
 }

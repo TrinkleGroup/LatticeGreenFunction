@@ -5,6 +5,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <cstring>
+#include <cstdlib>
 #include "Expression.hh"
 #include "SumExpression.hh"
 #include "DynMatExpression.hh"
@@ -31,15 +33,20 @@ void yyerror(const char *str)
 
 std::stack <Expression *> expstack;
 std::map <std::string, Expression *> symbol_table;
+bool firstHeader = false;
 
 #define READ_BUF_SIZE 2048
 
 void writeProgramHeader(std::ostream& os, char *funcname) {
-	os << "#include \"Matrix.hh\"\n"
-	   << "#include \"DynMat.hh\"\n"
-	   << "Matrix " << funcname
-	   << "(DynMat &dynmat, double k[3]) {\n"
-	   << "\tMatrix result(3u*dynmat.getNions(),3u*dynmat.getNions());\n"
+	if(!firstHeader) {
+		os << "#include \"Matrix.hh\"\n"
+		   << "#include \"DynMat.hh\"\n"
+		   << "#include \"SystemDimension.hh\"\n";
+		firstHeader = true;
+	}
+	os << "Matrix " << funcname
+	   << "(DynMat &dynmat, double *k) {\n"
+	   << "\tMatrix result(CARTDIM*dynmat.getNions(),CARTDIM*dynmat.getNions());\n"
 	   << "\tresult = ";
 }
 
