@@ -2,6 +2,7 @@
 #include <cassert>
 #include <gsl/gsl_complex.h>
 #include <gsl/gsl_complex_math.h>
+using std::size_t;
 #include <gsl/gsl_sf_legendre.h>
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_integration.h>
