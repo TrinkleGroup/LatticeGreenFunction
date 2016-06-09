@@ -1,0 +1,12 @@
+*.o
+*.a
+/buildlgf/build2dlgf
+/buildlgf/genKgrid
+/buildlgf/build3dlgf
+/buildlgf/build2dlgf2d
+/expressiongen/lex.yy.c
+/expressiongen/gfparser.cc
+/expressiongen/gfparser.hh
+/expressiongen/gfparser
+/expressiongen/gfparser
+/matrixlib/allmats.cc
